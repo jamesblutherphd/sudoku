@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sudoku</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Sudoku" />
+  <link rel="apple-touch-icon" href="icon-192.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f1a;
+      --surface: #1a1a2e;
+      --surface2: #22223a;
+      --border: rgba(255,255,255,0.08);
+      --border-strong: rgba(255,255,255,0.22);
+      --text: #e8e8f0;
+      --muted: #6b6b8a;
+      --accent: #7c6dfa;
+      --accent-dim: rgba(124,109,250,0.15);
+      --given: #e8e8f0;
+      --user: #7c6dfa;
+      --error: #fa6d7c;
+      --correct: #6dfa9a;
+      --highlight: rgba(124,109,250,0.07);
+      --selected: rgba(124,109,250,0.2);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overscroll-behavior: none;
+      user-select: none;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100dvh;
+      padding: 1.5rem 1rem 2rem;
+      gap: 1.25rem;
+    }
+
+    header {
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+
+    h1 {
+      font-family: 'DM Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 400;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    #timer {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.9rem;
+      font-weight: 300;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    #board-wrap {
+      width: min(100%, 400px);
+      aspect-ratio: 1;
+      position: relative;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      width: 100%;
+      height: 100%;
+      border: 2px solid var(--border-strong);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 0.5px solid var(--border);
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(14px, 4vw, 20px);
+      font-weight: 400;
+      cursor: pointer;
+      transition: background 0.1s;
+      position: relative;
+      background: var(--surface);
+    }
+
+    .cell.border-right { border-right: 1.5px solid var(--border-strong); }
+    .cell.border-bottom { border-bottom: 1.5px solid var(--border-strong); }
+    .cell.given { color: var(--given); font-weight: 500; }
+    .cell.user-val { color: var(--user); }
+    .cell.error-val { color: var(--error); }
+    .cell.selected { background: var(--selected); }
+    .cell.highlight { background: var(--highlight); }
+
+    .pencil-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      width: 100%;
+      height: 100%;
+      padding: 1px;
+    }
+
+    .pm {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(6px, 1.5vw, 9px);
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      line-height: 1;
+    }
+
+    #status {
+      font-size: 0.8rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      height: 1.2em;
+      text-align: center;
+      transition: color 0.2s;
+    }
+
+    #status.good { color: var(--correct); }
+    #status.bad { color: var(--error); }
+
+    #numpad {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      width: min(100%, 400px);
+    }
+
+    .num-btn {
+      aspect-ratio: 1;
+      border: 0.5px solid var(--border-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 400;
+      cursor: pointer;
+      transition: background 0.1s, transform 0.08s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .num-btn:active { transform: scale(0.93); background: var(--surface2); }
+    .num-btn.erase { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.05em; }
+
+    #controls {
+      display: flex;
+      gap: 8px;
+      width: min(100%, 400px);
+    }
+
+    .ctrl-btn {
+      flex: 1;
+      padding: 8px 0;
+      border: 0.5px solid var(--border-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+    }
+
+    .ctrl-btn:active { background: var(--surface2); }
+    .ctrl-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+
+    #difficulty {
+      display: flex;
+      gap: 6px;
+      width: min(100%, 400px);
+    }
+
+    .diff-btn {
+      flex: 1;
+      padding: 6px 0;
+      border: 0.5px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .diff-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    #win-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15,15,26,0.92);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 1.5rem;
+      z-index: 100;
+    }
+
+    #win-overlay.show { display: flex; }
+
+    .win-title {
+      font-family: 'DM Mono', monospace;
+      font-size: 2rem;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+    }
+
+    .win-time {
+      font-family: 'DM Mono', monospace;
+      font-size: 1rem;
+      color: var(--muted);
+    }
+
+    .win-btn {
+      padding: 12px 32px;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Sudoku</h1>
+  <div id="timer">00:00</div>
+</header>
+
+<div id="difficulty">
+  <button class="diff-btn active" onclick="setDifficulty('easy')">Easy</button>
+  <button class="diff-btn" onclick="setDifficulty('medium')">Medium</button>
+  <button class="diff-btn" onclick="setDifficulty('hard')">Hard</button>
+</div>
+
+<div id="board-wrap">
+  <div id="board"></div>
+</div>
+
+<div id="status">Select a cell, then enter a number.</div>
+
+<div id="numpad"></div>
+
+<div id="controls">
+  <button class="ctrl-btn" id="pencil-btn" onclick="togglePencil()">Pencil</button>
+  <button class="ctrl-btn active" id="feedback-btn" onclick="toggleFeedback()">Feedback</button>
+  <button class="ctrl-btn" onclick="checkBoard()">Check</button>
+  <button class="ctrl-btn" onclick="revealHint()">Hint</button>
+  <button class="ctrl-btn" onclick="resetBoard()">Reset</button>
+</div>
+
+<div id="win-overlay">
+  <div class="win-title">Solved!</div>
+  <div class="win-time" id="win-time"></div>
+  <button class="win-btn" onclick="newGame()">New Game</button>
+</div>
+
+<script>
+const PUZZLES = {
+  easy: [
+    { puzzle: [[5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],[8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],[0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]],
+      solution: [[5,3,4,6,7,8,9,1,2],[6,7,2,1,9,5,3,4,8],[1,9,8,3,4,2,5,6,7],[8,5,9,7,6,1,4,2,3],[4,2,6,8,5,3,7,9,1],[7,1,3,9,2,4,8,5,6],[9,6,1,5,3,7,2,8,4],[2,8,7,4,1,9,6,3,5],[3,4,5,2,8,6,1,7,9]] }
+  ],
+  medium: [
+    { puzzle: [[0,2,0,6,0,8,0,0,0],[5,8,0,0,0,9,7,0,0],[0,0,0,0,4,0,0,0,0],[3,7,0,0,0,0,5,0,0],[6,0,0,0,0,0,0,0,4],[0,0,8,0,0,0,0,1,3],[0,0,0,0,2,0,0,0,0],[0,0,9,8,0,0,0,3,6],[0,0,0,3,0,6,0,9,0]],
+      solution: [[1,2,3,6,7,8,9,4,5],[5,8,4,2,3,9,7,6,1],[9,6,7,1,4,5,3,8,2],[3,7,2,4,6,1,5,9,8],[6,9,1,5,8,3,2,7,4],[4,5,8,7,9,2,6,1,3],[7,1,5,9,2,4,8,2,9],[2,4,9,8,5,7,1,3,6],[8,3,6,3,1,6,4,9,7]] }
+  ],
+  hard: [
+    { puzzle: [[0,0,0,2,6,0,7,0,1],[6,8,0,0,7,0,0,9,0],[1,9,0,0,0,4,5,0,0],[8,2,0,1,0,0,0,4,0],[0,0,4,6,0,2,9,0,0],[0,5,0,0,0,3,0,2,8],[0,0,9,3,0,0,0,7,4],[0,4,0,0,5,0,0,3,6],[7,0,3,0,1,8,0,0,0]],
+      solution: [[4,3,5,2,6,9,7,8,1],[6,8,2,5,7,1,4,9,3],[1,9,7,8,3,4,5,6,2],[8,2,6,1,9,5,3,4,7],[3,7,4,6,8,2,9,1,5],[9,5,1,7,4,3,6,2,8],[5,1,9,3,2,6,8,7,4],[2,4,8,9,5,7,1,3,6],[7,6,3,4,1,8,2,5,9]] }
+  ]
+};
+
+let currentDiff = 'easy';
+let puzzle, solution, board, pencilMarks, selected, pencilMode, feedbackMode;
+let timerInterval, seconds;
+
+function setDifficulty(d) {
+  currentDiff = d;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase() === d));
+  newGame();
+}
+
+function newGame() {
+  document.getElementById('win-overlay').classList.remove('show');
+  const set = PUZZLES[currentDiff];
+  const choice = set[Math.floor(Math.random() * set.length)];
+  puzzle = choice.puzzle.map(r => [...r]);
+  solution = choice.solution.map(r => [...r]);
+  board = puzzle.map(r => [...r]);
+  pencilMarks = Array.from({length:9}, () => Array.from({length:9}, () => new Set()));
+  selected = null;
+  pencilMode = false;
+  feedbackMode = true;
+  document.getElementById('pencil-btn').classList.remove('active');
+  document.getElementById('feedback-btn').classList.add('active');
+  setStatus('Select a cell, then enter a number.', '');
+  clearInterval(timerInterval);
+  seconds = 0;
+  updateTimer();
+  timerInterval = setInterval(() => { seconds++; updateTimer(); }, 1000);
+  renderBoard();
+}
+
+function updateTimer() {
+  const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const s = String(seconds % 60).padStart(2, '0');
+  document.getElementById('timer').textContent = m + ':' + s;
+}
+
+function renderBoard() {
+  const el = document.getElementById('board');
+  el.innerHTML = '';
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (c === 2 || c === 5) cell.classList.add('border-right');
+      if (r === 2 || r === 5) cell.classList.add('border-bottom');
+
+      if (selected && selected[0] === r && selected[1] === c) {
+        cell.classList.add('selected');
+      } else if (selected) {
+        const [sr, sc] = selected;
+        const sBox = Math.floor(sr/3)*3 + Math.floor(sc/3);
+        const cBox = Math.floor(r/3)*3 + Math.floor(c/3);
+        if (sr === r || sc === c || sBox === cBox) cell.classList.add('highlight');
+      }
+
+      const val = board[r][c];
+      if (val !== 0) {
+        if (puzzle[r][c] !== 0) {
+          cell.classList.add('given');
+        } else if (feedbackMode) {
+          cell.classList.add(val === solution[r][c] ? 'user-val' : 'error-val');
+        } else {
+          cell.classList.add('user-val');
+        }
+        cell.textContent = val;
+      } else if (pencilMarks[r][c].size > 0) {
+        const g = document.createElement('div');
+        g.className = 'pencil-grid';
+        for (let n = 1; n <= 9; n++) {
+          const pm = document.createElement('div');
+          pm.className = 'pm';
+          pm.textContent = pencilMarks[r][c].has(n) ? n : '';
+          g.appendChild(pm);
+        }
+        cell.appendChild(g);
+      }
+
+      cell.addEventListener('click', () => { selected = [r, c]; renderBoard(); });
+      el.appendChild(cell);
+    }
+  }
+}
+
+function inputNumber(n) {
+  if (!selected) { setStatus('Tap a cell first.', ''); return; }
+  const [r, c] = selected;
+  if (puzzle[r][c] !== 0) { setStatus('That\'s a given — can\'t change it.', ''); return; }
+  setStatus('', '');
+  if (pencilMode) {
+    if (pencilMarks[r][c].has(n)) pencilMarks[r][c].delete(n);
+    else pencilMarks[r][c].add(n);
+    board[r][c] = 0;
+  } else {
+    board[r][c] = n;
+    pencilMarks[r][c].clear();
+    checkWin();
+  }
+  renderBoard();
+}
+
+function checkWin() {
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (board[r][c] !== solution[r][c]) return;
+  clearInterval(timerInterval);
+  const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const s = String(seconds % 60).padStart(2, '0');
+  document.getElementById('win-time').textContent = 'Solved in ' + m + ':' + s;
+  setTimeout(() => document.getElementById('win-overlay').classList.add('show'), 400);
+}
+
+function eraseCell() {
+  if (!selected) return;
+  const [r, c] = selected;
+  if (puzzle[r][c] !== 0) return;
+  board[r][c] = 0;
+  pencilMarks[r][c].clear();
+  renderBoard();
+}
+
+function togglePencil() {
+  pencilMode = !pencilMode;
+  document.getElementById('pencil-btn').classList.toggle('active', pencilMode);
+}
+
+function toggleFeedback() {
+  feedbackMode = !feedbackMode;
+  document.getElementById('feedback-btn').classList.toggle('active', feedbackMode);
+  renderBoard();
+}
+
+function checkBoard() {
+  let errors = 0, blanks = 0;
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++) {
+      if (board[r][c] === 0) blanks++;
+      else if (puzzle[r][c] === 0 && board[r][c] !== solution[r][c]) errors++;
+    }
+  if (errors === 0 && blanks === 0) setStatus('Solved!', 'good');
+  else if (errors === 0) setStatus(blanks + ' cells left — no errors!', 'good');
+  else setStatus(errors + ' error' + (errors > 1 ? 's' : '') + ' found.', 'bad');
+}
+
+function revealHint() {
+  const empties = [];
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (board[r][c] === 0) empties.push([r, c]);
+  if (!empties.length) { setStatus('Board is complete!', 'good'); return; }
+  const [r, c] = empties[Math.floor(Math.random() * empties.length)];
+  board[r][c] = solution[r][c];
+  pencilMarks[r][c].clear();
+  selected = [r, c];
+  setStatus('Hint: row ' + (r+1) + ', col ' + (c+1) + ' = ' + solution[r][c], '');
+  renderBoard();
+}
+
+function resetBoard() {
+  board = puzzle.map(r => [...r]);
+  pencilMarks = Array.from({length:9}, () => Array.from({length:9}, () => new Set()));
+  selected = null;
+  clearInterval(timerInterval);
+  seconds = 0;
+  updateTimer();
+  timerInterval = setInterval(() => { seconds++; updateTimer(); }, 1000);
+  setStatus('Board reset.', '');
+  renderBoard();
+}
+
+function setStatus(msg, cls) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = cls;
+}
+
+const numpad = document.getElementById('numpad');
+for (let n = 1; n <= 9; n++) {
+  const btn = document.createElement('button');
+  btn.className = 'num-btn';
+  btn.textContent = n;
+  btn.onclick = () => inputNumber(n);
+  numpad.appendChild(btn);
+}
+const erase = document.createElement('button');
+erase.className = 'num-btn erase';
+erase.textContent = 'erase';
+erase.onclick = eraseCell;
+numpad.appendChild(erase);
+
+document.addEventListener('keydown', e => {
+  if (e.key >= '1' && e.key <= '9') inputNumber(parseInt(e.key));
+  if (e.key === 'Backspace' || e.key === 'Delete') eraseCell();
+  if (!selected) return;
+  const [r, c] = selected;
+  if (e.key === 'ArrowUp' && r > 0) { selected = [r-1, c]; renderBoard(); }
+  if (e.key === 'ArrowDown' && r < 8) { selected = [r+1, c]; renderBoard(); }
+  if (e.key === 'ArrowLeft' && c > 0) { selected = [r, c-1]; renderBoard(); }
+  if (e.key === 'ArrowRight' && c < 8) { selected = [r, c+1]; renderBoard(); }
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+newGame();
+</script>
+</body>
+</html>
