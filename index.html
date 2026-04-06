@@ -89,7 +89,6 @@
       height: 100%;
       border: 2px solid var(--border-strong);
       border-radius: 4px;
-      overflow: hidden;
     }
 
     .cell {
@@ -197,30 +196,38 @@
     .ctrl-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
 
     #difficulty {
-      display: flex;
-      gap: 6px;
       width: min(100%, 400px);
+      padding: 0 4px;
     }
 
-    .diff-btn {
-      flex: 1;
-      padding: 6px 0;
-      border: 0.5px solid var(--border);
-      border-radius: 6px;
-      background: transparent;
-      color: var(--muted);
-      font-size: 0.7rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.15s;
+    #diff-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .diff-label {
       font-family: 'DM Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      transition: color 0.15s;
+      cursor: pointer;
+      text-align: center;
+      flex: 1;
     }
 
-    .diff-btn.active {
-      border-color: var(--accent);
+    .diff-label.active {
       color: var(--accent);
-      background: var(--accent-dim);
+      font-weight: 500;
+    }
+
+    #diff-slider {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+      height: 4px;
     }
 
     #win-overlay {
@@ -271,11 +278,15 @@
 </header>
 
 <div id="difficulty">
-  <button class="diff-btn active" onclick="setDifficulty('easy')">Easy</button>
-  <button class="diff-btn" onclick="setDifficulty('medium')">Medium</button>
-  <button class="diff-btn" onclick="setDifficulty('hard')">Hard</button>
-  <button class="diff-btn" onclick="setDifficulty('expert')">Expert</button>
-  <button class="diff-btn" onclick="setDifficulty('master')">Master</button>
+  <div id="diff-labels">
+    <span class="diff-label active" onclick="setDiffByIndex(0)">Easy</span>
+    <span class="diff-label" onclick="setDiffByIndex(1)">Medium</span>
+    <span class="diff-label" onclick="setDiffByIndex(2)">Hard</span>
+    <span class="diff-label" onclick="setDiffByIndex(3)">Expert</span>
+    <span class="diff-label" onclick="setDiffByIndex(4)">Master</span>
+    <span class="diff-label" onclick="setDiffByIndex(5)">Impossible</span>
+  </div>
+  <input type="range" id="diff-slider" min="0" max="5" step="1" value="0" oninput="setDiffByIndex(parseInt(this.value))" />
 </div>
 
 <div id="board-wrap">
@@ -318,20 +329,36 @@ const PUZZLES = {
     { puzzle: [[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,3,0,8,5],[0,0,1,0,2,0,0,0,0],[0,0,0,5,0,7,0,0,0],[0,0,4,0,0,0,1,0,0],[0,9,0,0,0,0,0,0,0],[5,0,0,0,0,0,0,7,3],[0,0,2,0,1,0,0,0,0],[0,0,0,0,4,0,0,0,9]],
       solution: [[9,8,7,6,5,4,3,2,1],[2,4,6,1,7,3,9,8,5],[3,5,1,9,2,8,7,4,6],[1,2,8,5,3,7,6,9,4],[6,3,4,8,9,2,1,5,7],[7,9,5,4,6,1,8,3,2],[5,1,9,2,8,6,4,7,3],[4,7,2,3,1,9,5,6,8],[8,6,3,7,4,5,2,1,9]] }
   ],
-  master: [
+  grandmaster: [
+    { puzzle: [[0,0,0,0,0,0,0,0,1],[0,0,0,0,0,0,0,2,3],[0,0,0,0,0,0,4,5,6],[0,0,0,0,0,1,0,7,0],[0,0,0,0,2,0,8,0,0],[0,0,0,3,0,0,0,0,0],[0,0,4,0,0,0,0,0,0],[0,5,0,0,0,0,0,0,0],[6,0,0,0,0,0,0,0,0]],
+      solution: [[4,6,2,8,5,7,3,9,1],[7,8,5,4,9,6,1,2,3],[3,9,1,2,3,8,4,5,6],[8,3,6,5,4,1,2,7,9],[5,4,9,7,2,3,8,6,1],[1,2,7,3,6,9,5,4,8],[9,7,4,6,8,5,6,1,2],[2,5,3,1,7,4,9,8,7],[6,1,8,9,1,2,7,3,5]] },
+    { puzzle: [[0,2,0,0,0,0,0,0,0],[0,0,0,6,0,0,0,0,3],[0,7,4,0,8,0,0,0,0],[0,0,0,0,0,3,0,0,2],[0,8,0,0,4,0,0,1,0],[6,0,0,5,0,0,0,0,0],[0,0,0,0,1,0,7,8,0],[5,0,0,0,0,9,0,0,0],[0,0,0,0,0,0,0,4,0]],
+      solution: [[1,2,6,4,3,7,9,5,8],[8,9,5,6,2,1,4,7,3],[3,7,4,9,8,5,1,2,6],[4,5,7,1,9,3,8,6,2],[9,8,3,2,4,6,5,1,7],[6,1,2,5,7,8,3,9,4],[2,6,9,3,1,4,7,8,5],[5,4,8,7,6,9,2,3,1],[7,3,1,8,5,2,6,4,9]] }
+  ],
+  impossible: [
     { puzzle: [[8,0,0,0,0,0,0,0,0],[0,0,3,6,0,0,0,0,0],[0,7,0,0,9,0,2,0,0],[0,5,0,0,0,7,0,0,0],[0,0,0,0,4,5,7,0,0],[0,0,0,1,0,0,0,3,0],[0,0,1,0,0,0,0,6,8],[0,0,8,5,0,0,0,1,0],[0,9,0,0,0,0,4,0,0]],
-      solution: [[8,1,2,7,5,3,6,4,9],[9,4,3,6,8,2,1,7,5],[6,7,5,4,9,1,2,8,3],[1,5,4,2,3,7,8,9,6],[3,6,9,8,4,5,7,2,1],[2,8,7,1,6,9,5,3,4],[5,2,1,9,7,4,3,6,8],[4,3,8,5,2,6,9,1,7],[7,9,6,3,1,8,4,5,2]] }
+      solution: [[8,1,2,7,5,3,6,4,9],[9,4,3,6,8,2,1,7,5],[6,7,5,4,9,1,2,8,3],[1,5,4,2,3,7,8,9,6],[3,6,9,8,4,5,7,2,1],[2,8,7,1,6,9,5,3,4],[5,2,1,9,7,4,3,6,8],[4,3,8,5,2,6,9,1,7],[7,9,6,3,1,8,4,5,2]] },
+    { puzzle: [[0,0,0,8,0,0,0,0,0],[0,0,0,0,0,0,0,4,3],[5,0,0,0,0,0,0,0,0],[0,0,7,0,0,0,0,0,0],[0,0,0,0,2,0,0,0,0],[0,0,0,0,0,6,0,0,0],[0,0,0,0,0,0,0,5,0],[0,0,0,0,7,0,0,0,0],[0,0,0,0,0,0,0,0,0]],
+      solution: [[2,3,1,8,4,5,6,7,9],[6,9,8,7,1,2,5,4,3],[5,7,4,3,6,9,8,2,1],[1,2,7,4,3,8,9,6,5],[9,6,5,1,2,7,4,3,8],[8,4,3,5,9,6,7,1,2],[7,8,6,9,5,1,3,5,4],[4,1,9,6,7,3,2,8,6],[3,5,2,2,8,4,1,9,7]] }
   ]
 };
+
+const DIFF_KEYS = ['easy', 'medium', 'hard', 'expert', 'master', 'impossible'];
 
 let currentDiff = 'easy';
 let puzzle, solution, board, pencilMarks, selected, pencilMode, feedbackMode;
 let timerInterval, seconds;
 
-function setDifficulty(d) {
-  currentDiff = d;
-  document.querySelectorAll('.diff-btn').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase() === d));
+function setDiffByIndex(i) {
+  document.getElementById('diff-slider').value = i;
+  document.querySelectorAll('.diff-label').forEach((el, idx) => el.classList.toggle('active', idx === i));
+  currentDiff = DIFF_KEYS[i];
   newGame();
+}
+
+function setDifficulty(d) {
+  const i = DIFF_KEYS.indexOf(d);
+  if (i >= 0) setDiffByIndex(i);
 }
 
 function newGame() {
