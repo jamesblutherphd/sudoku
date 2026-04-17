@@ -1,4 +1,4 @@
-const CACHE = 'raydoku-v4';
+const CACHE = 'raydoku-v7';
 const ASSETS = [
   './',
   './index.html',
