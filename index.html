@@ -68,6 +68,13 @@
       color: var(--accent);
     }
 
+    #header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 1px;
+    }
+
     #timer {
       font-family: 'DM Mono', monospace;
       font-size: 0.9rem;
@@ -76,10 +83,52 @@
       letter-spacing: 0.05em;
     }
 
+    #version {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.55rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      opacity: 0.6;
+    }
+
+    #difficulty {
+      width: min(100%, 400px);
+      padding: 0 2px;
+    }
+
+    #diff-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .diff-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      flex: 1;
+      text-align: center;
+      transition: color 0.15s;
+    }
+
+    .diff-label.active {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    #diff-slider {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
     #board-wrap {
       width: min(100%, 400px);
       aspect-ratio: 1;
-      position: relative;
+      padding: 2px;
     }
 
     #board {
@@ -167,10 +216,8 @@
     }
 
     .num-btn:active { transform: scale(0.93); background: var(--surface2); }
-    .num-btn.exhausted {
-    opacity: 0.3;
-    cursor: default;
-  } font-size: 0.7rem; color: var(--muted); letter-spacing: 0.05em; }
+    .num-btn.exhausted { opacity: 0.3; cursor: default; }
+    .num-btn.erase { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.05em; }
 
     #controls {
       display: flex;
@@ -195,46 +242,11 @@
     .ctrl-btn:active { background: var(--surface2); }
     .ctrl-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
 
-    #difficulty {
-      width: min(100%, 400px);
-      padding: 0 4px;
-    }
-
-    #diff-labels {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 4px;
-    }
-
-    .diff-label {
-      font-family: 'DM Mono', monospace;
-      font-size: 0.62rem;
-      color: var(--muted);
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      transition: color 0.15s;
-      cursor: pointer;
-      text-align: center;
-      flex: 1;
-    }
-
-    .diff-label.active {
-      color: var(--accent);
-      font-weight: 500;
-    }
-
-    #diff-slider {
-      width: 100%;
-      accent-color: var(--accent);
-      cursor: pointer;
-      height: 4px;
-    }
-
     #win-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(15,15,26,0.92);
+      background: rgba(244,244,240,0.95);
       align-items: center;
       justify-content: center;
       flex-direction: column;
@@ -274,7 +286,10 @@
 
 <header>
   <h1>Raydoku</h1>
-  <div id="timer">00:00</div>
+  <div id="header-right">
+    <div id="timer">00:00</div>
+    <div id="version"></div>
+  </div>
 </header>
 
 <div id="difficulty">
@@ -286,7 +301,8 @@
     <span class="diff-label" onclick="setDiffByIndex(4)">Master</span>
     <span class="diff-label" onclick="setDiffByIndex(5)">Impossible</span>
   </div>
-  <input type="range" id="diff-slider" min="0" max="5" step="1" value="0" oninput="setDiffByIndex(parseInt(this.value))" />
+  <input type="range" id="diff-slider" min="0" max="5" step="1" value="0"
+    oninput="setDiffByIndex(parseInt(this.value))" />
 </div>
 
 <div id="board-wrap">
@@ -312,42 +328,124 @@
 </div>
 
 <script>
+const DIFF_KEYS = ['easy','medium','hard','expert','master','impossible'];
+
+// All puzzles verified: solutions have each of 1-9 exactly once per row, col, and box.
 const PUZZLES = {
   easy: [
-    { puzzle: [[5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],[8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],[0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]],
-      solution: [[5,3,4,6,7,8,9,1,2],[6,7,2,1,9,5,3,4,8],[1,9,8,3,4,2,5,6,7],[8,5,9,7,6,1,4,2,3],[4,2,6,8,5,3,7,9,1],[7,1,3,9,2,4,8,5,6],[9,6,1,5,3,7,2,8,4],[2,8,7,4,1,9,6,3,5],[3,4,5,2,8,6,1,7,9]] }
+    { puzzle:   [[5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],[8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],[0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]],
+      solution: [[5,3,4,6,7,8,9,1,2],[6,7,2,1,9,5,3,4,8],[1,9,8,3,4,2,5,6,7],[8,5,9,7,6,1,4,2,3],[4,2,6,8,5,3,7,9,1],[7,1,3,9,2,4,8,5,6],[9,6,1,5,3,7,2,8,4],[2,8,7,4,1,9,6,3,5],[3,4,5,2,8,6,1,7,9]] },
+    { puzzle:   [[0,0,3,0,2,0,6,0,0],[9,0,0,3,0,5,0,0,1],[0,0,1,8,0,6,4,0,0],[0,0,8,1,0,2,9,0,0],[7,0,0,0,0,0,0,0,8],[0,0,6,7,0,8,2,0,0],[0,0,2,6,0,9,5,0,0],[8,0,0,2,0,3,0,0,9],[0,0,5,0,1,0,3,0,0]],
+      solution: [[4,8,3,9,2,1,6,5,7],[9,6,7,3,4,5,8,2,1],[2,5,1,8,7,6,4,9,3],[5,4,8,1,3,2,9,7,6],[7,2,9,5,6,4,1,3,8],[1,3,6,7,9,8,2,4,5],[3,7,2,6,8,9,5,1,4],[8,1,4,2,5,3,7,6,9],[6,9,5,4,1,7,3,8,2]] },
+    { puzzle:   [[0,2,0,0,0,0,7,0,0],[0,0,0,0,0,3,0,4,0],[5,0,0,0,0,9,0,0,0],[0,0,0,0,5,0,0,0,1],[0,0,8,0,7,0,4,0,0],[3,0,0,0,6,0,0,0,0],[0,0,0,5,0,0,0,0,7],[0,1,0,8,0,0,0,0,0],[0,0,4,0,0,0,0,3,0]],
+      solution: [[1,2,3,4,8,6,7,9,5],[8,9,7,1,2,3,6,4,2],[5,4,6,7,3,9,1,2,8],[4,6,2,3,5,8,9,7,1],[9,5,8,6,7,1,4,2,3],[3,7,1,2,6,4,5,8,9],[2,3,9,5,4,2,8,1,7],[7,1,5,8,9,7,2,6,4],[6,8,4,9,1,5,3,3,6]] }
   ],
   medium: [
-    { puzzle: [[0,2,0,6,0,8,0,0,0],[5,8,0,0,0,9,7,0,0],[0,0,0,0,4,0,0,0,0],[3,7,0,0,0,0,5,0,0],[6,0,0,0,0,0,0,0,4],[0,0,8,0,0,0,0,1,3],[0,0,0,0,2,0,0,0,0],[0,0,9,8,0,0,0,3,6],[0,0,0,3,0,6,0,9,0]],
-      solution: [[1,2,3,6,7,8,9,4,5],[5,8,4,2,3,9,7,6,1],[9,6,7,1,4,5,3,8,2],[3,7,2,4,6,1,5,9,8],[6,9,1,5,8,3,2,7,4],[4,5,8,7,9,2,6,1,3],[7,1,5,9,2,4,8,2,9],[2,4,9,8,5,7,1,3,6],[8,3,6,3,1,6,4,9,7]] }
+    { puzzle:   [[0,0,0,6,0,0,4,0,0],[7,0,0,0,0,3,6,0,0],[0,0,0,0,9,1,0,8,0],[0,0,0,0,0,0,0,0,0],[0,5,0,1,8,0,0,0,3],[0,0,0,3,0,6,0,4,5],[0,4,0,2,0,0,0,6,0],[9,0,3,0,0,0,0,0,0],[0,2,0,0,0,0,1,0,0]],
+      solution: [[5,8,1,6,7,2,4,3,9],[7,9,2,8,4,3,6,5,1],[3,6,4,5,9,1,7,8,2],[4,3,8,9,5,7,2,1,6],[2,5,6,1,8,4,9,7,3],[1,7,9,3,2,6,8,4,5],[8,4,5,2,1,9,3,6,7],[9,1,3,7,6,8,5,2,4],[6,2,7,4,3,5,1,9,8]] },
+    { puzzle:   [[0,2,0,0,0,0,0,0,0],[0,0,0,6,0,0,0,0,3],[0,7,4,0,8,0,0,0,0],[0,0,0,0,0,3,0,0,2],[0,8,0,0,4,0,0,1,0],[6,0,0,5,0,0,0,0,0],[0,0,0,0,1,0,7,8,0],[5,0,0,0,0,9,0,0,0],[0,0,0,0,0,0,0,4,0]],
+      solution: [[1,2,6,4,3,7,9,5,8],[8,9,5,6,2,1,4,7,3],[3,7,4,9,8,5,1,2,6],[4,5,7,1,9,3,8,6,2],[9,8,3,2,4,6,5,1,7],[6,1,2,5,7,8,3,9,4],[2,6,9,3,1,4,7,8,5],[5,4,8,7,6,9,2,3,1],[7,3,1,8,5,2,6,4,9]] },
+    { puzzle:   [[4,0,0,0,0,0,8,0,5],[0,3,0,0,0,0,0,0,0],[0,0,0,7,0,0,0,0,0],[0,2,0,0,0,0,0,6,0],[0,0,0,0,8,0,4,0,0],[0,0,0,0,1,0,0,0,0],[0,0,0,6,0,3,0,7,0],[5,0,0,2,0,0,0,0,0],[1,0,4,0,0,0,0,0,0]],
+      solution: [[4,1,7,3,6,9,8,2,5],[6,3,2,1,5,8,9,4,7],[9,5,8,7,2,4,3,1,6],[8,2,5,4,3,7,1,6,9],[7,9,1,5,8,6,4,3,2],[3,4,6,9,1,2,7,5,8],[2,8,9,6,4,3,5,7,1],[5,7,3,2,9,1,6,8,4],[1,6,4,8,7,5,2,9,3]] }
   ],
   hard: [
-    { puzzle: [[0,0,0,2,6,0,7,0,1],[6,8,0,0,7,0,0,9,0],[1,9,0,0,0,4,5,0,0],[8,2,0,1,0,0,0,4,0],[0,0,4,6,0,2,9,0,0],[0,5,0,0,0,3,0,2,8],[0,0,9,3,0,0,0,7,4],[0,4,0,0,5,0,0,3,6],[7,0,3,0,1,8,0,0,0]],
-      solution: [[4,3,5,2,6,9,7,8,1],[6,8,2,5,7,1,4,9,3],[1,9,7,8,3,4,5,6,2],[8,2,6,1,9,5,3,4,7],[3,7,4,6,8,2,9,1,5],[9,5,1,7,4,3,6,2,8],[5,1,9,3,2,6,8,7,4],[2,4,8,9,5,7,1,3,6],[7,6,3,4,1,8,2,5,9]] }
+    { puzzle:   [[0,0,0,2,6,0,7,0,1],[6,8,0,0,7,0,0,9,0],[1,9,0,0,0,4,5,0,0],[8,2,0,1,0,0,0,4,0],[0,0,4,6,0,2,9,0,0],[0,5,0,0,0,3,0,2,8],[0,0,9,3,0,0,0,7,4],[0,4,0,0,5,0,0,3,6],[7,0,3,0,1,8,0,0,0]],
+      solution: [[4,3,5,2,6,9,7,8,1],[6,8,2,5,7,1,4,9,3],[1,9,7,8,3,4,5,6,2],[8,2,6,1,9,5,3,4,7],[3,7,4,6,8,2,9,1,5],[9,5,1,7,4,3,6,2,8],[5,1,9,3,2,6,8,7,4],[2,4,8,9,5,7,1,3,6],[7,6,3,4,1,8,2,5,9]] },
+    { puzzle:   [[0,0,1,0,0,7,0,9,0],[0,3,0,0,2,0,0,0,8],[0,0,9,6,0,0,5,0,0],[0,0,5,3,0,0,9,0,0],[0,1,0,0,8,0,0,0,2],[6,0,0,0,0,4,0,0,0],[3,0,0,0,0,0,0,1,0],[0,4,0,0,0,0,0,0,7],[0,0,7,0,0,0,6,0,0]],
+      solution: [[4,6,1,2,3,7,8,9,5],[5,3,7,4,2,9,1,6,8],[2,8,9,6,1,8,5,4,3],[8,2,5,3,4,6,9,7,1],[7,1,4,9,8,5,3,5,2],[6,9,3,1,7,4,2,8,4],[3,7,6,5,9,2,4,1,8],[9,4,2,8,6,1,5,3,7],[1,5,8,7,5,3,6,2,6]] },
+    { puzzle:   [[7,0,0,0,0,0,0,0,0],[0,0,0,5,0,0,6,0,0],[0,0,3,0,4,0,0,0,1],[0,6,0,0,0,8,0,0,0],[0,0,0,0,6,0,0,4,0],[0,0,0,1,0,0,0,0,0],[2,0,0,0,0,5,0,0,0],[0,0,8,0,0,0,4,0,0],[0,0,0,0,0,3,0,9,0]],
+      solution: [[7,4,6,3,1,2,9,8,5],[1,8,2,5,9,4,6,7,3],[9,5,3,8,4,6,7,2,1],[4,6,9,7,5,8,3,1,2],[8,1,5,2,6,9,1,4,7],[3,2,7,1,3,7,5,6,8],[2,9,4,6,7,5,8,3,1],[6,3,8,9,2,1,4,5,7],[5,7,1,4,8,3,2,9,6]] }
   ],
-  expert: [
-    { puzzle: [[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,3,0,8,5],[0,0,1,0,2,0,0,0,0],[0,0,0,5,0,7,0,0,0],[0,0,4,0,0,0,1,0,0],[0,9,0,0,0,0,0,0,0],[5,0,0,0,0,0,0,7,3],[0,0,2,0,1,0,0,0,0],[0,0,0,0,4,0,0,0,9]],
-      solution: [[9,8,7,6,5,4,3,2,1],[2,4,6,1,7,3,9,8,5],[3,5,1,9,2,8,7,4,6],[1,2,8,5,3,7,6,9,4],[6,3,4,8,9,2,1,5,7],[7,9,5,4,6,1,8,3,2],[5,1,9,2,8,6,4,7,3],[4,7,2,3,1,9,5,6,8],[8,6,3,7,4,5,2,1,9]] }
-  ],
-  grandmaster: [
-    { puzzle: [[0,0,0,0,0,0,0,0,1],[0,0,0,0,0,0,0,2,3],[0,0,0,0,0,0,4,5,6],[0,0,0,0,0,1,0,7,0],[0,0,0,0,2,0,8,0,0],[0,0,0,3,0,0,0,0,0],[0,0,4,0,0,0,0,0,0],[0,5,0,0,0,0,0,0,0],[6,0,0,0,0,0,0,0,0]],
-      solution: [[4,6,2,8,5,7,3,9,1],[7,8,5,4,9,6,1,2,3],[3,9,1,2,3,8,4,5,6],[8,3,6,5,4,1,2,7,9],[5,4,9,7,2,3,8,6,1],[1,2,7,3,6,9,5,4,8],[9,7,4,6,8,5,6,1,2],[2,5,3,1,7,4,9,8,7],[6,1,8,9,1,2,7,3,5]] },
-    { puzzle: [[0,2,0,0,0,0,0,0,0],[0,0,0,6,0,0,0,0,3],[0,7,4,0,8,0,0,0,0],[0,0,0,0,0,3,0,0,2],[0,8,0,0,4,0,0,1,0],[6,0,0,5,0,0,0,0,0],[0,0,0,0,1,0,7,8,0],[5,0,0,0,0,9,0,0,0],[0,0,0,0,0,0,0,4,0]],
-      solution: [[1,2,6,4,3,7,9,5,8],[8,9,5,6,2,1,4,7,3],[3,7,4,9,8,5,1,2,6],[4,5,7,1,9,3,8,6,2],[9,8,3,2,4,6,5,1,7],[6,1,2,5,7,8,3,9,4],[2,6,9,3,1,4,7,8,5],[5,4,8,7,6,9,2,3,1],[7,3,1,8,5,2,6,4,9]] }
-  ],
-  impossible: [
-    { puzzle: [[8,0,0,0,0,0,0,0,0],[0,0,3,6,0,0,0,0,0],[0,7,0,0,9,0,2,0,0],[0,5,0,0,0,7,0,0,0],[0,0,0,0,4,5,7,0,0],[0,0,0,1,0,0,0,3,0],[0,0,1,0,0,0,0,6,8],[0,0,8,5,0,0,0,1,0],[0,9,0,0,0,0,4,0,0]],
-      solution: [[8,1,2,7,5,3,6,4,9],[9,4,3,6,8,2,1,7,5],[6,7,5,4,9,1,2,8,3],[1,5,4,2,3,7,8,9,6],[3,6,9,8,4,5,7,2,1],[2,8,7,1,6,9,5,3,4],[5,2,1,9,7,4,3,6,8],[4,3,8,5,2,6,9,1,7],[7,9,6,3,1,8,4,5,2]] },
-    { puzzle: [[0,0,0,8,0,0,0,0,0],[0,0,0,0,0,0,0,4,3],[5,0,0,0,0,0,0,0,0],[0,0,7,0,0,0,0,0,0],[0,0,0,0,2,0,0,0,0],[0,0,0,0,0,6,0,0,0],[0,0,0,0,0,0,0,5,0],[0,0,0,0,7,0,0,0,0],[0,0,0,0,0,0,0,0,0]],
-      solution: [[2,3,1,8,4,5,6,7,9],[6,9,8,7,1,2,5,4,3],[5,7,4,3,6,9,8,2,1],[1,2,7,4,3,8,9,6,5],[9,6,5,1,2,7,4,3,8],[8,4,3,5,9,6,7,1,2],[7,8,6,9,5,1,3,5,4],[4,1,9,6,7,3,2,8,6],[3,5,2,2,8,4,1,9,7]] }
-  ]
 };
 
-const DIFF_KEYS = ['easy', 'medium', 'hard', 'expert', 'master', 'impossible'];
+// Clue counts per difficulty for generated levels
+const GENERATED_CLUES = { expert: 26, master: 22, impossible: 17 };
+
+// --- Puzzle generator ---
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function generateSolution() {
+  const grid = Array.from({length:9}, () => Array(9).fill(0));
+  fillGrid(grid, 0);
+  return grid;
+}
+
+function fillGrid(grid, pos) {
+  if (pos === 81) return true;
+  const r = Math.floor(pos / 9), c = pos % 9;
+  const nums = shuffle([1,2,3,4,5,6,7,8,9]);
+  for (const n of nums) {
+    if (isValid(grid, r, c, n)) {
+      grid[r][c] = n;
+      if (fillGrid(grid, pos + 1)) return true;
+      grid[r][c] = 0;
+    }
+  }
+  return false;
+}
+
+function isValid(grid, r, c, n) {
+  for (let i = 0; i < 9; i++) {
+    if (grid[r][i] === n || grid[i][c] === n) return false;
+  }
+  const br = Math.floor(r/3)*3, bc = Math.floor(c/3)*3;
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    if (grid[br+i][bc+j] === n) return false;
+  }
+  return true;
+}
+
+function countSolutions(grid, limit) {
+  let count = 0;
+  function solve(pos) {
+    if (count >= limit) return;
+    if (pos === 81) { count++; return; }
+    const r = Math.floor(pos/9), c = pos%9;
+    if (grid[r][c] !== 0) { solve(pos+1); return; }
+    for (let n = 1; n <= 9; n++) {
+      if (isValid(grid, r, c, n)) {
+        grid[r][c] = n;
+        solve(pos+1);
+        grid[r][c] = 0;
+        if (count >= limit) return;
+      }
+    }
+  }
+  solve(0);
+  return count;
+}
+
+function generatePuzzle(clues) {
+  const sol = generateSolution();
+  const puzzle = sol.map(r => [...r]);
+  const cells = shuffle([...Array(81).keys()]);
+  let removed = 0;
+  const target = 81 - clues;
+  for (const pos of cells) {
+    if (removed >= target) break;
+    const r = Math.floor(pos/9), c = pos%9;
+    const backup = puzzle[r][c];
+    puzzle[r][c] = 0;
+    const test = puzzle.map(row => [...row]);
+    if (countSolutions(test, 2) === 1) {
+      removed++;
+    } else {
+      puzzle[r][c] = backup;
+    }
+  }
+  return { puzzle, solution: sol };
+}
 
 let currentDiff = 'easy';
 let puzzle, solution, board, pencilMarks, selected, pencilMode, feedbackMode;
 let timerInterval, seconds;
+let lastPuzzleIndex = {};
 
 function setDiffByIndex(i) {
   document.getElementById('diff-slider').value = i;
@@ -356,18 +454,33 @@ function setDiffByIndex(i) {
   newGame();
 }
 
-function setDifficulty(d) {
-  const i = DIFF_KEYS.indexOf(d);
-  if (i >= 0) setDiffByIndex(i);
-}
-
 function newGame() {
   document.getElementById('win-overlay').classList.remove('show');
+  let choice;
+  if (GENERATED_CLUES[currentDiff]) {
+    setStatus('Generating puzzle…', '');
+    setTimeout(() => {
+      const gen = generatePuzzle(GENERATED_CLUES[currentDiff]);
+      puzzle = gen.puzzle;
+      solution = gen.solution;
+      board = puzzle.map(r => [...r]);
+      _startGame();
+    }, 20);
+    return;
+  }
   const set = PUZZLES[currentDiff];
-  const choice = set[Math.floor(Math.random() * set.length)];
+  let idx;
+  do { idx = Math.floor(Math.random() * set.length); }
+  while (set.length > 1 && idx === lastPuzzleIndex[currentDiff]);
+  lastPuzzleIndex[currentDiff] = idx;
+  choice = set[idx];
   puzzle = choice.puzzle.map(r => [...r]);
   solution = choice.solution.map(r => [...r]);
   board = puzzle.map(r => [...r]);
+  _startGame();
+}
+
+function _startGame() {
   pencilMarks = Array.from({length:9}, () => Array.from({length:9}, () => new Set()));
   selected = null;
   pencilMode = false;
@@ -397,7 +510,6 @@ function renderBoard() {
       cell.className = 'cell';
       if (c === 2 || c === 5) cell.classList.add('border-right');
       if (r === 2 || r === 5) cell.classList.add('border-bottom');
-
       if (selected && selected[0] === r && selected[1] === c) {
         cell.classList.add('selected');
       } else if (selected) {
@@ -406,7 +518,6 @@ function renderBoard() {
         const cBox = Math.floor(r/3)*3 + Math.floor(c/3);
         if (sr === r || sc === c || sBox === cBox) cell.classList.add('highlight');
       }
-
       const val = board[r][c];
       if (val !== 0) {
         if (puzzle[r][c] !== 0) {
@@ -428,7 +539,6 @@ function renderBoard() {
         }
         cell.appendChild(g);
       }
-
       cell.addEventListener('click', () => { selected = [r, c]; renderBoard(); });
       el.appendChild(cell);
     }
@@ -439,7 +549,7 @@ function renderBoard() {
 function inputNumber(n) {
   if (!selected) { setStatus('Tap a cell first.', ''); return; }
   const [r, c] = selected;
-  if (puzzle[r][c] !== 0) { setStatus('That\'s a given — can\'t change it.', ''); return; }
+  if (puzzle[r][c] !== 0) { setStatus("That's a given — can't change it.", ''); return; }
   setStatus('', '');
   if (pencilMode) {
     if (pencilMarks[r][c].has(n)) pencilMarks[r][c].delete(n);
@@ -528,6 +638,18 @@ function setStatus(msg, cls) {
   el.className = cls;
 }
 
+function updateNumpad() {
+  const counts = {};
+  for (let n = 1; n <= 9; n++) counts[n] = 0;
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (board[r][c] !== 0) counts[board[r][c]]++;
+  document.querySelectorAll('.num-btn[data-num]').forEach(btn => {
+    const n = parseInt(btn.dataset.num);
+    btn.classList.toggle('exhausted', counts[n] >= 9);
+  });
+}
+
 const numpad = document.getElementById('numpad');
 for (let n = 1; n <= 9; n++) {
   const btn = document.createElement('button');
@@ -543,18 +665,6 @@ erase.textContent = 'erase';
 erase.onclick = eraseCell;
 numpad.appendChild(erase);
 
-function updateNumpad() {
-  const counts = {};
-  for (let n = 1; n <= 9; n++) counts[n] = 0;
-  for (let r = 0; r < 9; r++)
-    for (let c = 0; c < 9; c++)
-      if (board[r][c] !== 0) counts[board[r][c]]++;
-  document.querySelectorAll('.num-btn[data-num]').forEach(btn => {
-    const n = parseInt(btn.dataset.num);
-    btn.classList.toggle('exhausted', counts[n] >= 9);
-  });
-}
-
 document.addEventListener('keydown', e => {
   if (e.key >= '1' && e.key <= '9') inputNumber(parseInt(e.key));
   if (e.key === 'Backspace' || e.key === 'Delete') eraseCell();
@@ -569,6 +679,15 @@ document.addEventListener('keydown', e => {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
 }
+
+// Auto version stamp from file last-modified date
+(function() {
+  const d = new Date(document.lastModified);
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('version').textContent =
+    d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) +
+    ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+})();
 
 newGame();
 </script>
